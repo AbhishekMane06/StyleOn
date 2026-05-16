@@ -1,4 +1,4 @@
-# 🎨 StyleOn — Style Studio: Advanced AR Beauty & Try-On
+# 🎨 StyleOn — Advanced AR Beauty & Try-On
 
 <div align="center">
 
