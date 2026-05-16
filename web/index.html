@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>StyleOn — Virtual Try-On</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0d0d12;--surface:#161620;--border:#ffffff0d;--text:#e2e8f0;--muted:#64748b;--purple:#a855f7;--cyan:#00d4ff;--pink:#f472b6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 15% 15%,#1a053388,transparent 55%),radial-gradient(ellipse at 85% 85%,#001a3388,transparent 55%);pointer-events:none;z-index:0}
+
+/* ── Header ── */
+header{position:relative;z-index:10;text-align:center;padding:28px 20px 16px}
+.logo{font-size:2rem;font-weight:900;background:linear-gradient(135deg,var(--cyan),var(--purple),var(--pink));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-1px}
+.tagline{color:var(--muted);font-size:.9rem;font-weight:300;margin-top:4px}
+
+/* ── Camera Section ── */
+.camera-wrap{position:relative;z-index:10;display:flex;justify-content:center;padding:0 20px}
+#canvas{border-radius:20px;box-shadow:0 0 0 1px var(--border),0 24px 80px #000a;max-width:100%;display:block;transform:scaleX(-1)}
+#video{display:none}
+
+/* ── Status ── */
+#status{text-align:center;margin:12px 0;font-size:.9rem;color:var(--muted);font-weight:500;min-height:22px;transition:color .3s}
+
+/* ── Controls ── */
+.controls{position:relative;z-index:10;display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 20px 20px}
+
+/* Accessory Pills */
+.acc-row{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.acc-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:30px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .25s}
+.acc-btn:hover{border-color:var(--c);color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent)}
+.acc-btn.active{border-color:var(--c);color:var(--c);background:color-mix(in srgb,var(--c) 18%,transparent);box-shadow:0 0 12px color-mix(in srgb,var(--c) 30%,transparent)}
+
+/* Capture Button */
+.capture-btn{display:flex;align-items:center;gap:10px;padding:14px 36px;border-radius:50px;border:none;background:linear-gradient(135deg,var(--purple),var(--cyan));color:#fff;font-family:'Outfit',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;transition:transform .2s,box-shadow .2s;box-shadow:0 8px 30px #a855f744}
+.capture-btn:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 12px 40px #a855f766}
+.capture-btn:active{transform:scale(.97)}
+
+/* Counter Badge */
+.counter{font-size:.8rem;color:var(--muted);text-align:center}
+.counter span{color:var(--cyan);font-weight:700}
+
+/* ── Gallery ── */
+#gallery{position:relative;z-index:10;padding:40px 20px 80px;display:none}
+.gallery-header{text-align:center;margin-bottom:30px}
+.gallery-title{font-size:1.8rem;font-weight:900;background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.gallery-sub{color:var(--muted);font-size:.85rem;margin-top:6px}
+
+/* Stats Bar */
+.stats{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-bottom:36px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 24px;text-align:center}
+.stat-n{font-size:1.6rem;font-weight:900;background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-l{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+
+/* Divider */
+.divider{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:.8rem;margin-bottom:32px;padding:0 20px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Polaroid Grid */
+.grid{display:flex;flex-wrap:wrap;justify-content:center;gap:36px;max-width:1200px;margin:0 auto}
+
+/* Polaroid Card */
+.card{background:#fffef8;border-radius:3px;padding:12px 12px 52px;width:210px;box-shadow:0 8px 40px #0009;transform:rotate(var(--rot));transition:transform .35s cubic-bezier(.34,1.56,.64,1),box-shadow .3s;cursor:pointer;animation:cardIn .5s ease both;flex-shrink:0}
+.card:hover{transform:rotate(0deg) scale(1.08) translateY(-14px);box-shadow:0 28px 64px #000b}
+@keyframes cardIn{from{opacity:0;transform:rotate(var(--rot)) translateY(50px)}to{opacity:1;transform:rotate(var(--rot)) translateY(0)}}
+
+/* Photo inside polaroid */
+.pw{position:relative;overflow:hidden;border-radius:2px;line-height:0;background:#111}
+.pw img{width:100%;height:170px;object-fit:cover;display:block;transform:scaleX(-1);transition:transform .35s,filter .35s}
+.card:hover .pw img{transform:scaleX(-1) scale(1.06);filter:brightness(.6)}
+
+/* Download overlay */
+.dl{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .3s}
+.card:hover .dl{opacity:1}
+.dl a{display:flex;align-items:center;gap:7px;background:#ffffffee;color:#111;border-radius:30px;padding:8px 16px;font-weight:700;font-size:.8rem;text-decoration:none;border:2px solid var(--clr);transition:background .2s,transform .15s}
+.dl a:hover{background:var(--clr);color:#fff;transform:scale(1.06)}
+
+/* Caption */
+.cap{padding:10px 2px 0;text-align:center;color:#111}
+.badge{display:inline-block;border-radius:20px;padding:2px 10px;font-size:.68rem;font-weight:700;margin-bottom:4px;font-family:'Outfit',sans-serif}
+.style-name{font-size:.78rem;font-weight:600;color:#333;margin-bottom:5px}
+.score-row{display:flex;align-items:baseline;justify-content:center;gap:2px;margin-bottom:5px}
+.score-v{font-size:1.4rem;font-weight:900;font-family:'Outfit',sans-serif}
+.score-d{font-size:.7rem;color:#888}
+.bar{background:#e5e7eb;border-radius:99px;height:4px;overflow:hidden;margin-bottom:4px}
+.bar-f{height:100%;border-radius:99px;transition:width 1s ease}
+.ts{font-size:.6rem;color:#aaa;font-family:'Outfit',sans-serif}
+
+/* Footer */
+footer{text-align:center;padding:24px;color:var(--muted);font-size:.8rem;border-top:1px solid var(--border);position:relative;z-index:10}
+footer span{color:var(--purple);font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">✨ StyleOn</div>
+  <p class="tagline">Virtual AR Accessory Try-On · Powered by MediaPipe</p>
+</header>
+
+<div class="camera-wrap">
+  <video id="video" playsinline></video>
+  <canvas id="canvas" width="640" height="480"></canvas>
+</div>
+
+<p id="status">⏳ Loading face detection…</p>
+
+<div class="controls">
+  <div class="acc-row" id="accRow"></div>
+  <button class="capture-btn" id="captureBtn">📸 Capture</button>
+  <p class="counter" id="counter">Take <span id="needed">3</span> photos to open your style gallery</p>
+</div>
+
+<section id="gallery">
+  <div class="gallery-header">
+    <div class="gallery-title">✨ Your Style Session</div>
+    <p class="gallery-sub">StyleOn · Virtual Try-On Gallery</p>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="divider">Your Polaroids</div>
+  <div class="grid" id="grid"></div>
+</section>
+
+<footer>Made with <span>StyleOn</span> · MediaPipe FaceMesh + OpenCV concepts in the browser</footer>
+
+<!-- MediaPipe CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const ACCESSORIES = {
+  Sunglasses: { src:'../images/specs.png',  emoji:'🕶',  color:'#00d4ff', label:'Fashion Forward', base:91 },
+  Hat:        { src:'../images/hat.png',    emoji:'🎩',  color:'#ff6b35', label:'Street Style',    base:87 },
+  Mask:       { src:'../images/emask.png',  emoji:'😷',  color:'#a855f7', label:'Urban Cool',      base:84 },
+  Dog:        { src:'../images/dog.png',    emoji:'🐶',  color:'#fbbf24', label:'Playful Vibes',   base:79 },
+  Cat:        { src:'../images/cats.png',   emoji:'🐱',  color:'#f472b6', label:'Mysteriously Chic', base:85 },
+  Moustache:  { src:'../images/moustache.png', emoji:'🥸', color:'#34d399', label:'Classic Charm',  base:89 },
+};
+const ROTS = [-3, 2, -2, 3, -1, 2, -3, 1];
+const MIN_CAPTURES = 3;
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentAcc  = 'Mask';
+let captures    = [];
+const images    = {};
+let faceLandmarks = null;
+let canvasReady = false;
+
+// ── DOM ───────────────────────────────────────────────────────────────────────
+const video      = document.getElementById('video');
+const canvas     = document.getElementById('canvas');
+const ctx        = canvas.getContext('2d');
+const statusEl   = document.getElementById('status');
+const counterEl  = document.getElementById('counter');
+const neededEl   = document.getElementById('needed');
+const gallery    = document.getElementById('gallery');
+const gridEl     = document.getElementById('grid');
+const statsEl    = document.getElementById('stats');
+
+// ── Preload Images ────────────────────────────────────────────────────────────
+function preloadImages() {
+  return Promise.all(Object.entries(ACCESSORIES).map(([name, cfg]) => {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => { images[name] = img; resolve(); };
+      img.onerror = () => resolve(); // skip missing
+      img.src = cfg.src;
+    });
+  }));
+}
+
+// ── Build Accessory Buttons ───────────────────────────────────────────────────
+function buildButtons() {
+  const row = document.getElementById('accRow');
+  Object.entries(ACCESSORIES).forEach(([name, cfg]) => {
+    const btn = document.createElement('button');
+    btn.className = 'acc-btn' + (name === currentAcc ? ' active' : '');
+    btn.style.setProperty('--c', cfg.color);
+    btn.innerHTML = `${cfg.emoji} ${name}`;
+    btn.id = 'btn-' + name;
+    btn.onclick = () => selectAccessory(name);
+    row.appendChild(btn);
+  });
+}
+
+function selectAccessory(name) {
+  currentAcc = name;
+  document.querySelectorAll('.acc-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + name)?.classList.add('active');
+  setStatus(`${ACCESSORIES[name].emoji} ${name} selected`, ACCESSORIES[name].color);
+}
+
+// ── Status ────────────────────────────────────────────────────────────────────
+function setStatus(msg, color = '#64748b') {
+  statusEl.textContent = msg;
+  statusEl.style.color = color;
+}
+
+// ── FaceMesh ──────────────────────────────────────────────────────────────────
+const faceMesh = new FaceMesh({ locateFile: f =>
+  `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
+});
+faceMesh.setOptions({
+  maxNumFaces: 1,
+  refineLandmarks: true,
+  minDetectionConfidence: 0.5,
+  minTrackingConfidence: 0.5
+});
+faceMesh.onResults(onResults);
+
+// ── Draw Loop ─────────────────────────────────────────────────────────────────
+function onResults(results) {
+  ctx.save();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Mirror: flip canvas horizontally so it feels like a mirror
+  ctx.scale(-1, 1);
+  ctx.translate(-canvas.width, 0);
+  ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
+
+  faceLandmarks = null;
+  if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+    faceLandmarks = results.multiFaceLandmarks[0];
+    setStatus('✅ Face detected! Strike a pose!', '#00ff88');
+    drawAccessory(faceLandmarks);
+  } else {
+    setStatus('👤 Looking for your face…', '#64748b');
+  }
+  canvasReady = true;
+}
+
+// ── Helper: landmark pixel coords ─────────────────────────────────────────────
+function lm(i) {
+  const p = faceLandmarks[i];
+  // landmarks are in unmirrored space; we mirror canvas so we mirror X here
+  return { x: (1 - p.x) * canvas.width, y: p.y * canvas.height };
+}
+
+// ── Draw Accessory ────────────────────────────────────────────────────────────
+function drawAccessory(landmarks) {
+  const img = images[currentAcc];
+  if (!img) return;
+
+  const leftEye  = lm(33);
+  const rightEye = lm(263);
+  const nose     = lm(1);
+  const forehead = lm(10);
+  const chin     = lm(152);
+  const leftFace = lm(234);
+  const rightFace= lm(454);
+  const upperLip = lm(13);
+
+  const faceW  = Math.abs(rightFace.x - leftFace.x);
+  const faceH  = Math.abs(chin.y - forehead.y);
+  const faceCX = (leftFace.x + rightFace.x) / 2;
+  const eyeCX  = (leftEye.x  + rightEye.x)  / 2;
+  const eyeCY  = (leftEye.y  + rightEye.y)  / 2;
+  const ar     = img.naturalWidth / img.naturalHeight;
+
+  let iw, ih, ix, iy;
+
+  switch(currentAcc) {
+    case 'Sunglasses':
+      iw = faceW * 1.12;  ih = iw / ar;
+      ix = eyeCX - iw/2;  iy = eyeCY - ih/2;
+      break;
+    case 'Hat':
+      iw = faceW * 1.55;  ih = iw / ar;
+      ix = faceCX - iw/2; iy = forehead.y - ih * 0.88;
+      break;
+    case 'Mask':
+      iw = faceW * 1.08;  ih = iw / ar;
+      ix = faceCX - iw/2; iy = nose.y - ih * 0.15;
+      break;
+    case 'Dog':
+      iw = faceW * 1.25;  ih = iw / ar;
+      ix = faceCX - iw/2; iy = eyeCY - ih * 0.45;
+      break;
+    case 'Cat':
+      iw = faceW * 0.65;  ih = iw / ar;
+      ix = faceCX - iw/2; iy = eyeCY - ih * 0.5;
+      break;
+    case 'Moustache':
+      iw = faceW * 0.62;  ih = iw / ar;
+      ix = faceCX - iw/2; iy = upperLip.y - ih * 0.6;
+      break;
+    default: return;
+  }
+
+  ctx.drawImage(img, ix, iy, iw, ih);
+}
+
+// ── Capture ───────────────────────────────────────────────────────────────────
+document.getElementById('captureBtn').onclick = capturePhoto;
+
+function capturePhoto() {
+  if (!canvasReady) return;
+
+  // Clone canvas to data URL
+  const dataURL = canvas.toDataURL('image/jpeg', 0.92);
+  const cfg     = ACCESSORIES[currentAcc];
+  const score   = Math.min(100, Math.max(70, cfg.base + Math.floor(Math.random() * 11) - 4));
+  const now     = new Date();
+  const ts      = now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+                  + ' · ' + now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+
+  captures.push({ dataURL, accessory: currentAcc, score, label: cfg.label, color: cfg.color, ts });
+
+  const count  = captures.length;
+  const needed = Math.max(0, MIN_CAPTURES - count);
+
+  if (count >= MIN_CAPTURES) {
+    counterEl.innerHTML = `🎉 <span style="color:#00ff88">${count} photos!</span> Opening gallery…`;
+    setTimeout(showGallery, 800);
+  } else {
+    counterEl.innerHTML = `📸 Got <span>${count}</span>! Take <span>${needed}</span> more to open gallery`;
+  }
+
+  // Flash effect
+  flashEffect();
+}
+
+function flashEffect() {
+  const flash = document.createElement('div');
+  Object.assign(flash.style, {
+    position:'fixed', inset:'0', background:'#fff', opacity:'.7',
+    pointerEvents:'none', zIndex:'999', transition:'opacity .4s'
+  });
+  document.body.appendChild(flash);
+  requestAnimationFrame(() => { flash.style.opacity = '0'; });
+  setTimeout(() => flash.remove(), 500);
+}
+
+// ── Gallery ───────────────────────────────────────────────────────────────────
+function showGallery() {
+  gallery.style.display = 'block';
+  gallery.scrollIntoView({ behavior: 'smooth' });
+
+  // Stats
+  const avg  = Math.round(captures.reduce((s,p)=>s+p.score,0) / captures.length);
+  const best = captures.reduce((a,b)=>a.score>b.score?a:b);
+  statsEl.innerHTML = `
+    <div class="stat"><div class="stat-n">${captures.length}</div><div class="stat-l">Photos Taken</div></div>
+    <div class="stat"><div class="stat-n">${avg}</div><div class="stat-l">Avg Score</div></div>
+    <div class="stat"><div class="stat-n" style="font-size:1rem">${best.label}</div><div class="stat-l">Best Look</div></div>`;
+
+  // Cards
+  gridEl.innerHTML = '';
+  captures.forEach((p, i) => {
+    const rot = ROTS[i % ROTS.length];
+    const c   = p.color;
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.cssText = `--rot:${rot}deg;--clr:${c};animation-delay:${i*0.12}s`;
+    card.innerHTML = `
+      <div class="pw">
+        <img src="${p.dataURL}" alt="Capture ${i+1}"/>
+        <div class="dl">
+          <a href="${p.dataURL}" download="StyleOn_${p.accessory}_${i+1}.jpg">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 16l-5-5h3V4h4v7h3l-5 5zm-7 4h14v-2H5v2z"/>
+            </svg>
+            Download
+          </a>
+        </div>
+      </div>
+      <div class="cap">
+        <span class="badge" style="background:${c}22;color:${c};border:1px solid ${c}44">
+          ${ACCESSORIES[p.accessory].emoji} ${p.accessory}
+        </span>
+        <div class="style-name">${p.label}</div>
+        <div class="score-row">
+          <span class="score-v" style="color:${c}">${p.score}</span>
+          <span class="score-d">/100</span>
+        </div>
+        <div class="bar"><div class="bar-f" style="width:${p.score}%;background:${c}"></div></div>
+        <div class="ts">${p.ts}</div>
+      </div>`;
+    gridEl.appendChild(card);
+  });
+}
+
+// ── Camera Start ──────────────────────────────────────────────────────────────
+async function init() {
+  await preloadImages();
+  buildButtons();
+
+  const camera = new Camera(video, {
+    onFrame: async () => { await faceMesh.send({ image: video }); },
+    width: 640, height: 480
+  });
+  await camera.start();
+  setStatus('👤 Looking for your face…', '#64748b');
+}
+
+init().catch(err => {
+  setStatus('❌ Camera error: ' + err.message, 'red');
+});
+</script>
+</body>
+</html>
