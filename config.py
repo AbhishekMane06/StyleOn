@@ -1,8 +1,17 @@
 import os
+import sys
 
 # Base paths
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CAPTURES_DIR = os.path.join(BASE_DIR, "captures")
+if getattr(sys, 'frozen', False):
+    # If the app is run from a bundle (PyInstaller .exe)
+    BASE_DIR = sys._MEIPASS
+else:
+    # If the app is run from a normal Python environment
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# We want the captures folder to be next to the EXE, not inside the temp folder
+EXE_DIR = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else BASE_DIR
+CAPTURES_DIR = os.path.join(EXE_DIR, "captures")
 os.makedirs(CAPTURES_DIR, exist_ok=True)
 
 # Accessories Data
